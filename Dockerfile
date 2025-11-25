@@ -7,7 +7,7 @@ COPY web .
 RUN npm run build
 
 # Build backend
-FROM golang:1.21 AS backend
+FROM golang:1.25-alpine AS backend
 WORKDIR /app
 COPY . .
 COPY --from=frontend /web/dist ./server/embed/frontend

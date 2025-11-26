@@ -1,52 +1,48 @@
-# -----------------------------
-# Build frontend
-# -----------------------------
+# ------------------------------------------------
+# Build Frontend (Next.js)
+# ------------------------------------------------
 FROM node:18 AS frontend
 WORKDIR /web
 
+# Install dependencies
 COPY web/package*.json ./
 RUN npm install
 
+# Copy the rest of frontend source
 COPY web ./
-RUN npm run build   # produces dist/
 
+# Build frontend
+RUN npm run build
 
-# -----------------------------
-# Build backend
-# -----------------------------
+# ------------------------------------------------
+# Build Backend (Go)
+# ------------------------------------------------
 FROM golang:1.25 AS backend
 WORKDIR /app
 
 # Copy backend source
 COPY . .
 
-# Copy frontend build into the Go embed directory
-# IMPORTANT: this folder MUST match your project structure
-COPY --from=frontend /web/dist ./server/embed/frontend
+# Copy Next.js build output into Go embed directory
+COPY --from=frontend /web/.next ./server/embed/frontend/.next
+COPY --from=frontend /web/public ./server/embed/frontend/public
 
-RUN go version
+# Build Go backend
+RUN go mod tidy
+RUN go build -o app .
 
-# Build the Go binary
-RUN go build -o memos ./cmd/memos
-
-
-# -----------------------------
-# Final runtime image
-# -----------------------------
+# ------------------------------------------------
+# Final Runtime Image
+# ------------------------------------------------
 FROM debian:bookworm-slim
+
 WORKDIR /app
 
-# Create memos data directory
-RUN mkdir -p /var/opt/memos && chmod -R 777 /var/opt/memos
+# Copy Go executable
+COPY --from=backend /app/app .
 
-ENV MEMOS_DATA=/var/opt/memos
-
-# Copy the binary
-COPY --from=backend /app/memos .
-
-# Copy the embedded frontend folder
-COPY --from=backend /app/server/embed ./embed
-
+# Expose backend port
 EXPOSE 8081
 
-CMD ["./memos"]
+# Run app
+CMD ["./app"]

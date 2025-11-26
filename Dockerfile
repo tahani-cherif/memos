@@ -1,48 +1,79 @@
+# Multi-stage build for Memos deployment on Railway
+
 # ------------------------------------------------
-# Build Frontend (Next.js)
+# Stage 1: Build Frontend (React + Vite, NOT Next.js)
 # ------------------------------------------------
-FROM node:18 AS frontend
+FROM node:20-alpine AS frontend
+
 WORKDIR /web
 
+# Install pnpm (Memos uses pnpm, not npm)
+RUN corepack enable && corepack prepare pnpm@latest --activate
+
+# Copy frontend dependencies
+COPY web/package.json web/pnpm-lock.yaml ./
+
 # Install dependencies
-COPY web/package*.json ./
-RUN npm install
+RUN pnpm install --frozen-lockfile
 
-# Copy the rest of frontend source
-COPY web ./
+# Copy frontend source
+COPY web/ ./
 
-# Build frontend
-RUN npm run build
+# Build frontend (outputs to dist/, not .next/)
+# This runs: vite build -> outputs to web/dist/
+RUN pnpm build
 
 # ------------------------------------------------
-# Build Backend (Go)
+# Stage 2: Build Backend (Go)
 # ------------------------------------------------
-FROM golang:1.25 AS backend
+FROM golang:1.23-alpine AS backend
+
 WORKDIR /app
+
+# Install build dependencies
+RUN apk add --no-cache git
+
+# Copy go mod files
+COPY go.mod go.sum ./
+
+# Download dependencies
+RUN go mod download
 
 # Copy backend source
 COPY . .
 
-# Copy Next.js build output into Go embed directory
-COPY --from=frontend /web/.next ./server/embed/frontend/.next
-COPY --from=frontend /web/public ./server/embed/frontend/public
+# Copy built frontend from previous stage
+# The frontend must go to server/router/frontend/dist/
+COPY --from=frontend /web/dist ./server/router/frontend/dist
 
 # Build Go backend
-RUN go mod tidy
-RUN go build -o app .
+# Binary name: memos, entry point: ./cmd/memos
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -ldflags="-w -s" -o memos ./cmd/memos
 
 # ------------------------------------------------
-# Final Runtime Image
+# Stage 3: Final Runtime Image
 # ------------------------------------------------
-FROM debian:bookworm-slim
+FROM alpine:latest
+
+# Install ca-certificates for HTTPS and timezone data
+RUN apk --no-cache add ca-certificates tzdata
 
 WORKDIR /app
 
 # Copy Go executable
-COPY --from=backend /app/app .
+COPY --from=backend /app/memos .
 
-# Expose backend port
-EXPOSE 8081
+# Create data directory for SQLite and uploads
+RUN mkdir -p /var/opt/memos
 
-# Run app
-CMD ["./app"]
+# Expose port (Railway uses PORT env variable)
+EXPOSE 5230
+
+# Set default environment variables
+ENV MEMOS_MODE=prod \
+    MEMOS_ADDR=0.0.0.0 \
+    MEMOS_PORT=5230 \
+    MEMOS_DATA=/var/opt/memos
+
+# Run app - Railway provides PORT, fallback to 5230
+CMD sh -c './memos --mode ${MEMOS_MODE} --addr ${MEMOS_ADDR} --port ${PORT:-${MEMOS_PORT}} --data ${MEMOS_DATA}'

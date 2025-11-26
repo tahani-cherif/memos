@@ -28,7 +28,7 @@ func TestGetUserStats_TagCount(t *testing.T) {
 
 	// Create a memo with a single tag
 	memo, err := ts.Store.CreateMemo(ctx, &store.Memo{
-		UID:        "test-memo-1",
+		UID:        "test1",
 		CreatorID:  user.ID,
 		Content:    "This is a test memo with #test tag",
 		Visibility: store.Public,
@@ -53,7 +53,7 @@ func TestGetUserStats_TagCount(t *testing.T) {
 
 	// Create another memo with the same tag
 	memo2, err := ts.Store.CreateMemo(ctx, &store.Memo{
-		UID:        "test-memo-2",
+		UID:        "test2",
 		CreatorID:  user.ID,
 		Content:    "Another memo with #test tag",
 		Visibility: store.Public,
@@ -77,7 +77,7 @@ func TestGetUserStats_TagCount(t *testing.T) {
 
 	// Test with a new unique tag
 	memo3, err := ts.Store.CreateMemo(ctx, &store.Memo{
-		UID:        "test-memo-3",
+		UID:        "test3",
 		CreatorID:  user.ID,
 		Content:    "Memo with #unique tag",
 		Visibility: store.Public,

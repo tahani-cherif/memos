@@ -107,7 +107,7 @@ type DeleteMemo struct {
 }
 
 func (s *Store) CreateMemo(ctx context.Context, create *Memo) (*Memo, error) {
-	if !base.UIDMatcher.MatchString(create.UID) {
+	if !base.MemoUIDMatcher.MatchString(create.UID) {
 		return nil, errors.New("invalid uid")
 	}
 	return s.driver.CreateMemo(ctx, create)
@@ -131,7 +131,7 @@ func (s *Store) GetMemo(ctx context.Context, find *FindMemo) (*Memo, error) {
 }
 
 func (s *Store) UpdateMemo(ctx context.Context, update *UpdateMemo) error {
-	if update.UID != nil && !base.UIDMatcher.MatchString(*update.UID) {
+	if update.UID != nil && !base.MemoUIDMatcher.MatchString(*update.UID) {
 		return errors.New("invalid uid")
 	}
 	return s.driver.UpdateMemo(ctx, update)

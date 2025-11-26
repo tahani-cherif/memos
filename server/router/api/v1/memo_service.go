@@ -2,12 +2,13 @@ package v1
 
 import (
 	"context"
+	"crypto/rand"
 	"fmt"
 	"log/slog"
+	"math/big"
 	"strings"
 	"time"
 
-	"github.com/lithammer/shortuuid/v4"
 	"github.com/pkg/errors"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -30,13 +31,13 @@ func (s *APIV1Service) CreateMemo(ctx context.Context, request *v1pb.CreateMemoR
 		return nil, status.Errorf(codes.Unauthenticated, "user not authenticated")
 	}
 
-	// Use custom memo_id if provided, otherwise generate a new UUID
+	// Use custom memo_id if provided, otherwise generate a new 5-character alphanumeric UID
 	memoUID := strings.TrimSpace(request.MemoId)
 	if memoUID == "" {
-		memoUID = shortuuid.New()
-	} else if !base.UIDMatcher.MatchString(memoUID) {
+		memoUID = generateMemoUID()
+	} else if !base.MemoUIDMatcher.MatchString(memoUID) {
 		// Validate custom memo ID format
-		return nil, status.Errorf(codes.InvalidArgument, "invalid memo_id format: must be 1-32 characters, alphanumeric and hyphens only, cannot start or end with hyphen")
+		return nil, status.Errorf(codes.InvalidArgument, "invalid memo_id format: must be exactly 5 alphanumeric characters")
 	}
 
 	create := &store.Memo{
@@ -763,6 +764,18 @@ func (s *APIV1Service) getMemoContentSnippet(content string) (string, error) {
 		return "", errors.Wrap(err, "failed to generate snippet")
 	}
 	return snippet, nil
+}
+
+// generateMemoUID generates a random 5-character alphanumeric UID for memos
+func generateMemoUID() string {
+	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+	const length = 5
+	b := make([]byte, length)
+	for i := range b {
+		num, _ := rand.Int(rand.Reader, big.NewInt(int64(len(charset))))
+		b[i] = charset[num.Int64()]
+	}
+	return string(b)
 }
 
 // parseMemoOrderBy parses the order_by field and sets the appropriate ordering in memoFind.

@@ -20,7 +20,7 @@ WORKDIR /app
 COPY . .
 
 # Copy frontend build output
-COPY --from=frontend /web/dist ./server/embed/frontend
+COPY --from=frontend /web/.next ./server/embed/frontend
 
 RUN go version
 

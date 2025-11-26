@@ -16,7 +16,8 @@ WORKDIR /app
 COPY . .
 
 # Copy frontend build into backend embed folder
-COPY --from=frontend /web/dist ./server/embed/frontend
+# Replace 'build' with your actual output directory (e.g., 'out', 'public', etc.)
+COPY --from=frontend /web/build ./server/embed/frontend
 
 # Verify Go version
 RUN go version
@@ -35,5 +36,4 @@ COPY --from=backend /app/memos .
 COPY --from=backend /app/server/embed ./embed
 
 EXPOSE 8081
-
 CMD ["./memos"]

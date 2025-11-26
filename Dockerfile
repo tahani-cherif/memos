@@ -7,8 +7,8 @@ WORKDIR /web
 COPY web/package*.json ./
 RUN npm install
 
-COPY web .
-RUN npm run build   # output = dist
+COPY web ./
+RUN npm run build   # produces dist/
 
 
 # -----------------------------
@@ -17,13 +17,16 @@ RUN npm run build   # output = dist
 FROM golang:1.25 AS backend
 WORKDIR /app
 
+# Copy backend source
 COPY . .
 
-# Copy frontend build output
-COPY --from=frontend /web/.next ./server/embed/frontend
+# Copy frontend build into the Go embed directory
+# IMPORTANT: this folder MUST match your project structure
+COPY --from=frontend /web/dist ./server/embed/frontend
 
 RUN go version
 
+# Build the Go binary
 RUN go build -o memos ./cmd/memos
 
 
@@ -33,13 +36,15 @@ RUN go build -o memos ./cmd/memos
 FROM debian:bookworm-slim
 WORKDIR /app
 
-# Create required data folder
+# Create memos data directory
 RUN mkdir -p /var/opt/memos && chmod -R 777 /var/opt/memos
 
-# Optional: explicitly set data folder
 ENV MEMOS_DATA=/var/opt/memos
 
+# Copy the binary
 COPY --from=backend /app/memos .
+
+# Copy the embedded frontend folder
 COPY --from=backend /app/server/embed ./embed
 
 EXPOSE 8081
